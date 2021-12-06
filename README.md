@@ -62,3 +62,6 @@ The fireworks will be in the middle of the table and are designed in five differ
 
 ## Bonus
 When a player completes a firework by correctly playing a 5 card then the players receive a bonus. One Note token is turned from black side to white side up. If all tokens are already white-side-up then no bonus is received. Play then passes to the next player (clockwise).
+
+## Technics
+1) Discard your oldest card
