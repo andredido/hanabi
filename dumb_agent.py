@@ -1,5 +1,7 @@
 import GameManager
 from threading import Thread
+import time
+import random
 
 gm1 = GameManager.GameManager('127.0.0.1', '1024', 0)
 command = ''
@@ -9,5 +11,36 @@ while True:
     if command == "ready":
         break
 gm1.ready()
-while gm1.status == gm1.statuses[1]:
-    gm1.current_state()
+while(gm1.check_running()):
+    if( not gm1.check_running()): break
+    if (gm1.my_turn()):
+        #my turn --> do some action
+        if(int(gm1.state.usedNoteTokens)==0 ):
+            action = random.choice(['hint', 'play'])
+        elif(int(gm1.state.usedNoteTokens)==8):
+            action = random.choice(['play', 'discard'])
+        else:
+            action = random.choice(['hint', 'play', 'discard'])
+
+        if action == 'play':
+            #play a card
+            value = random.choice([0,1,2,3,4])
+            if(gm1.play_card(value)):
+                print('Played')
+        if action == 'hint':
+            dest = random.choice(gm1.get_players())
+            type_hint = random.choice(['color','value'])
+            if type_hint == 'color':
+                value = random.choice(['red', 'blue', 'yellow', 'white', 'green'])
+            else:
+                value = random.choice([1,2,3,4,5])
+            if(gm1.give_hint(dest, type_hint, value)):
+                print(f'Hint to {dest}')
+        if action == 'discard':
+            value = random.choice([0,1,2,3,4])
+            if(gm1.discard_card(value)):
+                print(f'Discarded')
+    time.sleep(5)
+
+
+del(gm1)
