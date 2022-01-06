@@ -13,7 +13,8 @@ while True:
 gm1.ready()
 while(gm1.check_running()):
     if( not gm1.check_running()): break
-    if (gm1.my_turn()):
+    turn, data = gm1.my_turn()
+    if (turn):
         #my turn --> do some action
         if(int(gm1.state.usedNoteTokens)==0 ):
             action = random.choice(['hint', 'play'])
@@ -40,7 +41,7 @@ while(gm1.check_running()):
             value = random.choice([0,1,2,3,4])
             if(gm1.discard_card(value)):
                 print(f'Discarded')
-    time.sleep(5)
+    gm1.wait_for_turn()
 
 
 del(gm1)

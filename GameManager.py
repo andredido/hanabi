@@ -18,10 +18,10 @@ class GameManager:
         self.run = True
         self.statuses = ["Lobby", "Game", "GameHint"]
         self.status = self.statuses[0]
-        self.hintState = ("", "")
+        self.hintState = {}
         self.state = None
         self.players = []
-        self.mycards = []
+        self.num_cards = 0
         self.lock = Lock()
         self.cv = Condition()
         self.cv_state = Condition()
@@ -55,6 +55,12 @@ class GameManager:
                     if type(data) is GameData.ServerStartGameData:
                         self.s.send(GameData.ClientPlayerReadyData(self.playerName).serialize())
                         self.players = data.players
+                        if len(self.players) >3: self.num_cards = 4
+                        else: self.num_cards = 5
+                        for p in self.players:
+                            self.hintState[p] = []
+                            for i in range(0,self.num_cards, 1):
+                                self.hintState[p].append(('unknown', 0))
                         self.players.remove(self.playerName)
                         self.status = self.statuses[1]
                         self.receiver_th = Thread(target=self.receiver)
@@ -73,31 +79,47 @@ class GameManager:
                     print('Received:' , data)
                     if type(data) is GameData.ServerGameStateData:
                         data: GameData.ServerGameStateData
-                        print('Setting state')
                         with self.cv_state:
                             self.state = data
                             self.cv_state.notify_all()
 
                     elif type(data) is GameData.ServerHintData:
                         data: GameData.ServerHintData
-                        
+                        #hint
+                        for i in data.positions:
+                            c, v = self.hintState[data.destination][i]
+                            if(data.type == 'value'):
+                                v = data.value
+                            else:
+                                c = data.value
+                            self.hintState[data.destination][i] = (c,v)
+                        print(self.hintState)
 
-                    elif type(data) is GameData.ServerPlayerMoveOk or type(data) is GameData.ServerPlayerThunderStrike:
+                    elif type(data) is GameData.ServerPlayerMoveOk \
+                      or type(data) is GameData.ServerPlayerThunderStrike:
                         data: GameData.ServerPlayerMoveOk
-                        
+                        print(data.lastPlayer, data.cardHandIndex)
+                        del self.hintState[data.lastPlayer][data.cardHandIndex]
+                        self.hintState[data.lastPlayer].append(('unknown', 0))
 
                     elif type(data) is GameData.ServerActionValid:
                         data: GameData.ServerActionValid
 
                     elif type(data) is GameData.ServerGameOver:
-                        self.run = False
+                        with self.lock:
+                            self.run = False
                         raise StopIteration
+                    
+                    with self.cv:
+                        self.cv.notify_all()
 
         except ConnectionResetError:
             with self.lock:
                 self.run = False
             with self.cv_state:
                 self.cv_state.notify_all()
+            with self.cv:
+                self.cv.notify_all()
 
     def play_card(self, num_card):
         try:
@@ -121,9 +143,13 @@ class GameManager:
     def get_players(self):
         return self.players
 
+    def wait_for_turn(self):
+        with self.cv:
+            self.cv.wait()
+
     def my_turn(self):
         data = self.current_state()
-        return data.currentPlayer == self.playerName
+        return data.currentPlayer == self.playerName, data
 
     def current_state(self):
         with self.cv_state:
