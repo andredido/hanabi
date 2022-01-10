@@ -1,9 +1,16 @@
+#!/usr/bin/env python3
 import GameManager
 from threading import Thread
-import time
+import os
+from sys import argv, stdout
 import random
 
-gm1 = GameManager.GameManager('127.0.0.1', '1024', 0)
+if(len(argv)< 2):
+    print('Provide an id number')
+
+id = int(argv[1])
+
+gm1 = GameManager.GameManager('127.0.0.1', '1024', id)
 command = ''
 while True:
     print('\nType ready when all the players are connected')

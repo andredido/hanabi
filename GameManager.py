@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-from sys import argv, stdout
 from threading import Thread, Lock, Condition
 from time import thread_time
 import GameData
@@ -37,9 +36,9 @@ class GameManager:
     
     def __del__(self):
         if self.s is not None:
-            self.receiver_th.join()
-            self.run=False
-            os._exit(0)
+            with self.lock:
+                self.run=False
+        os._exit(0)
     
     def ready(self):
         if self.status == self.statuses[0]:
@@ -106,12 +105,16 @@ class GameManager:
                         data: GameData.ServerActionValid
 
                     elif type(data) is GameData.ServerGameOver:
-                        with self.lock:
-                            self.run = False
-                        raise StopIteration
+                        self.run = False
+                        with self.cv_state:
+                            self.cv_state.notify_all()
+                        with self.cv:
+                            self.cv.notify_all()
+                        break
                     
                     with self.cv:
                         self.cv.notify_all()
+            os._exit(0)
 
         except ConnectionResetError:
             with self.lock:
