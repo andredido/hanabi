@@ -38,6 +38,11 @@ class GameManager:
         if self.s is not None:
             with self.lock:
                 self.run=False
+            with self.cv_state:
+                self.cv_state.notify_all()
+            with self.cv:
+                self.cv.notify_all()
+
         os._exit(0)
     
     def ready(self):
@@ -92,7 +97,6 @@ class GameManager:
                             else:
                                 c = data.value
                             self.hintState[data.destination][i] = (c,v)
-                        print(self.hintState)
 
                     elif type(data) is GameData.ServerPlayerMoveOk \
                       or type(data) is GameData.ServerPlayerThunderStrike:
