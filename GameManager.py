@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
+from sys import setswitchinterval
 from threading import Thread, Lock, Condition
 from time import thread_time
 import GameData
 import socket
 from constants import *
+from game import Card
 import os
-import game
 import copy
 
 class GameManager:
@@ -17,13 +18,22 @@ class GameManager:
         self.run = True
         self.statuses = ["Lobby", "Game", "GameHint"]
         self.status = self.statuses[0]
-        self.hintState = {}
+
         self.state = None
+        self.hintState = {}
+        self.hint_token = None
+        self.err_token = None
+        self.deck = None
+        self.table_cards = { "red": [], "yellow": [], "green": [], "blue": [], "white": [] }
+        self.discarded_cards = []
+        self.players_card = {}
         self.players = []
+        self.other_players = []
         self.num_cards = 0
         self.lock = Lock()
         self.cv = Condition()
         self.cv_state = Condition()
+
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
         self.s.connect((HOST, PORT))
         request = GameData.ClientPlayerAddData(self.playerName)
@@ -59,13 +69,17 @@ class GameManager:
                     if type(data) is GameData.ServerStartGameData:
                         self.s.send(GameData.ClientPlayerReadyData(self.playerName).serialize())
                         self.players = data.players
+                        idx = self.players.index(self.playerName)
+                        self.players = self.players[idx:] + self.players[:idx]          #ordered by turn
                         if len(self.players) >3: self.num_cards = 4
                         else: self.num_cards = 5
                         for p in self.players:
                             self.hintState[p] = []
                             for i in range(0,self.num_cards, 1):
                                 self.hintState[p].append(('unknown', 0))
-                        self.players.remove(self.playerName)
+                        print(self.players)
+                        self.other_players = list(self.players)
+                        self.other_players.remove(self.playerName)
                         self.status = self.statuses[1]
                         self.receiver_th = Thread(target=self.receiver)
                         self.receiver_th.start()
@@ -80,16 +94,24 @@ class GameManager:
                 if not data: continue
                 data = GameData.GameData.deserialize(data)
                 with self.lock:
-                    print('Received:' , data)
                     if type(data) is GameData.ServerGameStateData:
                         data: GameData.ServerGameStateData
                         with self.cv_state:
                             self.state = data
+                            self.hint_token = data.usedNoteTokens
+                            self.err_token = data.usedStormTokens
+                            for p in data.players:
+                                if p.name != self.playerName:
+                                    self.players_card[p.name] = [Card(card.id, card.value, card.color) for card in p.hand]
+                            for col in data.tableCards.keys():
+                                self.table_cards[col] = [Card(card.id, card.value, card.color) for card in data.tableCards[col]]
+                            self.discarded_cards = []
+                            for card in data.discardPile:
+                                self.discarded_cards.append(Card(card.id, card.value, card.color))
                             self.cv_state.notify_all()
 
                     elif type(data) is GameData.ServerHintData:
                         data: GameData.ServerHintData
-                        #hint
                         for i in data.positions:
                             c, v = self.hintState[data.destination][i]
                             if(data.type == 'value'):
@@ -101,7 +123,6 @@ class GameManager:
                     elif type(data) is GameData.ServerPlayerMoveOk \
                       or type(data) is GameData.ServerPlayerThunderStrike:
                         data: GameData.ServerPlayerMoveOk
-                        print(data.lastPlayer, data.cardHandIndex)
                         del self.hintState[data.lastPlayer][data.cardHandIndex]
                         self.hintState[data.lastPlayer].append(('unknown', 0))
 
@@ -150,6 +171,64 @@ class GameManager:
     def get_players(self):
         return self.players
 
+    def get_other_players(self):
+        return self.other_players
+    
+    def get_hintState(self):
+        with self.lock:
+            hs = dict(self.hintState)
+        return hs
+    
+    def get_myhintState(self):
+        with self.lock:
+            hs = list(self.hintState[self.playerName])
+        return hs
+
+    def get_hintState(self):
+        with self.cv_state:
+            try: self.s.send(GameData.ClientGetGameStateRequest(self.playerName).serialize())
+            except ConnectionResetError: return  
+            self.cv_state.wait()
+        with self.lock:
+            hS = dict(self.hintState)
+        return hS
+    
+    def get_deck_cards(self):
+        with self.cv_state:
+            try: self.s.send(GameData.ClientGetGameStateRequest(self.playerName).serialize())
+            except ConnectionResetError: return  
+            self.cv_state.wait()
+        with self.lock:
+            deck = dict(self.deck)
+        return deck
+
+    def get_players_cards(self):
+        with self.cv_state:
+            try: self.s.send(GameData.ClientGetGameStateRequest(self.playerName).serialize())
+            except ConnectionResetError: return  
+            self.cv_state.wait()
+        with self.lock:
+            pcs = dict(self.players_card)
+        return pcs
+    
+    def get_discarded_cards(self):
+        with self.cv_state:
+            try: self.s.send(GameData.ClientGetGameStateRequest(self.playerName).serialize())
+            except ConnectionResetError: return  
+            self.cv_state.wait()
+        with self.lock:
+            discard = list(self.discarded_cards)
+        return discard
+    
+    def get_table_cards(self):
+        with self.cv_state:
+            try: self.s.send(GameData.ClientGetGameStateRequest(self.playerName).serialize())
+            except ConnectionResetError: return  
+            self.cv_state.wait()
+        with self.lock:
+            table = dict(self.table_cards)
+        return table
+    
     def wait_for_turn(self):
         with self.cv:
             self.cv.wait()

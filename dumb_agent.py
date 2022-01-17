@@ -19,13 +19,12 @@ while True:
         break
 gm1.ready()
 while(gm1.check_running()):
-    if( not gm1.check_running()): break
     turn, data = gm1.my_turn()
     if (turn):
         #my turn --> do some action
-        if(int(gm1.state.usedNoteTokens)==0 ):
+        if(int(data.usedNoteTokens)==0 ):
             action = random.choice(['hint', 'play'])
-        elif(int(gm1.state.usedNoteTokens)==8):
+        elif(int(data.usedNoteTokens)==8):
             action = random.choice(['play', 'discard'])
         else:
             action = random.choice(['hint', 'play', 'discard'])
@@ -36,7 +35,7 @@ while(gm1.check_running()):
             if(gm1.play_card(value)):
                 print('Played')
         if action == 'hint':
-            dest = random.choice(gm1.get_players())
+            dest = random.choice(gm1.get_other_players())
             type_hint = random.choice(['color','value'])
             if type_hint == 'color':
                 value = random.choice(['red', 'blue', 'yellow', 'white', 'green'])
