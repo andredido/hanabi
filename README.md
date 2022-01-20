@@ -2,6 +2,12 @@
 ### Andrea Di Domenico s287639
 Computational Intelligence A.A. 2021/2022 - Politecnico di Torino
 
+
+Hanabi is an imperfect information game and also a multi-agent learning problem, so AI on this game is very difficult to implement.
+
+For this reason I have implemented my agent as a rule based system.
+
+
 ## My Agent
 Implemented in file **my_agent.py**.
 Instruction:
