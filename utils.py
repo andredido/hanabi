@@ -223,10 +223,10 @@ def hint_playable(players, playersCard, hintState, table_card):
         for idx, card in enumerate(playersCard[player]):
             c, v = hintState[player][idx]
             if len(table_card[card.color]) == card.value-1:
-                if v == 0:
-                    return True, 'value', player, card.value
-                elif c == 'unknown':
+                if c == 'unknown':
                     return True, 'color', player, card.color
+                elif v == 0:
+                    return True, 'value', player, card.value
     return False, '', '', 0
 
 def hint_playable_fast(players, playersCard, hintState, table_card):

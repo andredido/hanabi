@@ -60,7 +60,7 @@ while(gm.check_running()):
                 gm.give_hint(d, t, v)
                 print(f'Hinted player {d}, type {t}, value {v}')
                 continue
-        if(hint_token<8 and hint_token>3):
+        if(hint_token<8 and hint_token>4):
             b, t, d, v = utils.hint_useless_card(other_players, players_card, hintState, table_cards, discarded_cards)
             if b:
                 gm.give_hint(d, t, v)
@@ -74,9 +74,14 @@ while(gm.check_running()):
                 print(f'Discarded card {i}')
                 continue
             s, i = utils.discard_best_card(other_players, myhintState, table_cards, players_card, discarded_cards)
-            gm.discard_card(i)
-            print(f'Discarded card {i}')
-            continue
+            if s>0:
+                gm.discard_card(i)
+                print(f'Discarded card {i}')
+                continue
+            else:
+                gm.discard_card(0)
+                print(f'Discarded card 0')
+                continue                
         if(hint_token<8):    
             b, t, d, v = utils.hint_random(other_players, players_card, hintState, table_cards)
             if b:

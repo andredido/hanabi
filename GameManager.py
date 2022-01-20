@@ -92,14 +92,16 @@ class GameManager:
     def receiver(self):
         print('Starting thread')
         try:
-            while self.run:
+            with self.lock:
+                run = self.run
+            while run:
                 data = self.s.recv(DATASIZE)
                 if not data: continue
                 data = GameData.GameData.deserialize(data)
                 with self.lock:
+                    run = self.run
                     if type(data) is GameData.ServerActionInvalid:
                         data: GameData.ServerActionInvalid
-                        print('Invelid Action', data.message)
                         self.sem.release()
 
                     if type(data) is GameData.ServerGameStateData:
@@ -123,7 +125,6 @@ class GameManager:
                         data: GameData.ServerHintData
                         if(data.destination == self.playerName):
                             self.hintReceived = data.positions[-1] #Youngest card hinted
-                            print(data.positions[-1])
                         for i in data.positions:
                             c, v = self.hintState[data.destination][i]
                             if(data.type == 'value'):

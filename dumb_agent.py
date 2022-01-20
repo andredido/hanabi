@@ -10,21 +10,20 @@ if(len(argv)< 2):
 
 id = int(argv[1])
 
-gm1 = GameManager.GameManager('127.0.0.1', '1024', id)
-command = ''
-while True:
-    print('\nType ready when all the players are connected')
-    command = input()
-    if command == "ready":
-        break
-gm1.ready()
-while(gm1.check_running()):
-    turn, data = gm1.my_turn()
+gm = GameManager.GameManager('127.0.0.1', '1024', id)
+
+gm.ready()
+#initial state err_token = 0 , hint_token = 0
+turn, hint_token, err_token, playerName, other_players, hintState, table_cards, discarded_cards, players_card, num_cards, hintRecieved = gm.get_state()
+while(gm.check_running()):
+    gm.wait_for_turn()
+    turn, hint_token, err_token, playerName, other_players, hintState, table_cards, discarded_cards, players_card, num_cards, hintRecieved = gm.get_state()
+    myhintState = hintState[playerName]
     if (turn):
         #my turn --> do some action
-        if(int(data.usedNoteTokens)==0 ):
+        if(int(hint_token)==0 ):
             action = random.choice(['hint', 'play'])
-        elif(int(data.usedNoteTokens)==8):
+        elif(int(err_token)==8):
             action = random.choice(['play', 'discard'])
         else:
             action = random.choice(['hint', 'play', 'discard'])
@@ -32,22 +31,21 @@ while(gm1.check_running()):
         if action == 'play':
             #play a card
             value = random.choice([0,1,2,3,4])
-            if(gm1.play_card(value)):
+            if(gm.play_card(value)):
                 print('Played')
         if action == 'hint':
-            dest = random.choice(gm1.get_other_players())
+            dest = random.choice(other_players)
             type_hint = random.choice(['color','value'])
             if type_hint == 'color':
                 value = random.choice(['red', 'blue', 'yellow', 'white', 'green'])
             else:
                 value = random.choice([1,2,3,4,5])
-            if(gm1.give_hint(dest, type_hint, value)):
+            if(gm.give_hint(dest, type_hint, value)):
                 print(f'Hint to {dest}')
         if action == 'discard':
             value = random.choice([0,1,2,3,4])
-            if(gm1.discard_card(value)):
+            if(gm.discard_card(value)):
                 print(f'Discarded')
-    gm1.wait_for_turn()
 
 
-del(gm1)
+del(gm)
