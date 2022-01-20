@@ -11,7 +11,7 @@ if(len(argv)< 2):
     print('Provide an id number')
 
 id = int(argv[1])
-
+tn = 0
 gm = GameManager.GameManager('127.0.0.1', '1024', id)
 
 gm.ready()
@@ -22,6 +22,8 @@ while(gm.check_running()):
     turn, hint_token, err_token, playerName, other_players, hintState, table_cards, discarded_cards, players_card, num_cards, hintRecieved = gm.get_state()
     myhintState = hintState[playerName]
     if (turn):
+        print('turn',tn)
+        tn+=1
         print(f'\t{turn}, {hint_token}, {err_token}')
         print(f'\t{hintState}')
         print('\tPLAYERS CARDS')
@@ -38,10 +40,11 @@ while(gm.check_running()):
         print('\tTABLE')
         for color in table_cards:
             print(f'\t\t{color} {len(table_cards[color])}')
-        sp, ip = utils.play_best_card(other_players, myhintState, table_cards, players_card, discarded_cards)
         if not ok:
             print('PROBLEM!!!!!!!!!!!')
             break
+
+        sp, ip = utils.play_best_card(other_players, myhintState, table_cards, players_card, discarded_cards, hintRecieved)
         if(sp==1):
             gm.play_card(ip)
             print(f'Played sure card {ip}')
@@ -52,7 +55,7 @@ while(gm.check_running()):
             continue
         
         if(hint_token<8):
-            b, t, d, v = utils.hint_playable(other_players, players_card, hintState, table_cards)
+            b, t, d, v = utils.hint_playable_fast(other_players, players_card, hintState, table_cards)
             if b:
                 gm.give_hint(d, t, v)
                 print(f'Hinted player {d}, type {t}, value {v}')

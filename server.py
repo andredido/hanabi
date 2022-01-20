@@ -33,7 +33,6 @@ def manageConnection(conn: socket, addr):
         keepActive = True
         playerName = ""
         while keepActive:
-            print("SERVER WAITING")
             data = conn.recv(DATASIZE)
             mutex.acquire(True)
             if not data:
@@ -45,9 +44,7 @@ def manageConnection(conn: socket, addr):
                     os._exit(0)
                 keepActive = False
             else:
-                print(f"SERVER PROCESSING {GameData.GameData.deserialize(data)}")
                 data = GameData.GameData.deserialize(data)
-                print(f"SERVER RECEIVED {type(data)} from {data.sender}")
                 if status == "Lobby":
                     if type(data) is GameData.ClientPlayerAddData:
                         playerName = data.sender

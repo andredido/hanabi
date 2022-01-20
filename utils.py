@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import numpy as np
 
-def play_best_card(players, my_hand, table_cards, playersCard, discarded_cards):
+def play_best_card(players, my_hand, table_cards, playersCard, discarded_cards, hintRecieved=-1):
     scores = []
     for i, (c, v) in enumerate(my_hand):
         #I know all informations about the card
@@ -38,7 +38,10 @@ def play_best_card(players, my_hand, table_cards, playersCard, discarded_cards):
             if total_cards == 0:
                 scores.append(0.0)
             else:
-                scores.append(remaining/total_cards)   #probability that this is the right card
+                if hintRecieved != -1 and (remaining/total_cards) > 0:
+                    scores.append(0.76)
+                else:
+                    scores.append(remaining/total_cards)   #probability that this is the right card
 
         #I know only the value
         elif v != 0:
@@ -80,7 +83,10 @@ def play_best_card(players, my_hand, table_cards, playersCard, discarded_cards):
             if total_cards == 0:
                 scores.append(0.0)
             else:
-                scores.append(remaining/total_cards)
+                if hintRecieved != -1 and (remaining/total_cards) > 0:
+                    scores.append(0.76)
+                else:
+                    scores.append(remaining/total_cards)
         else:
             scores.append(0.0)
             
@@ -101,6 +107,7 @@ def useless_color(color, table_cards, discarded_cards):
                 remaining -= 1
         if remaining <=0: return True, i
     return False, -1
+
 def sure_discard( my_hand, table_cards, discarded_cards):
     for i, (c, v) in enumerate(my_hand):
         if c !='unknown' and v != 0:
@@ -208,29 +215,28 @@ def discard_best_card(players, my_hand, table_cards, playersCard, discarded_card
             scores.append(0.0)
     best_card = np.argmax(scores)
 
-    return scores[best_card], best_card
-
-
-def check_unique_remained(card_color, card_value, discarded_cards):
-    if card_value == 5:
-        return True
-    remaining = 0
-    if card_value == 1:
-        remaining = 2
-    else:
-        remaining = 1
-    for card in discarded_cards:
-        if card.value == card_value and card.color == card_color:
-            remaining -= 1
-    if remaining<1:
-        return True 
-    return False
-        
+    return scores[best_card], best_card    
 
 def hint_playable(players, playersCard, hintState, table_card):
     #hint next playable card
     for player in players:
         for idx, card in enumerate(playersCard[player]):
+            c, v = hintState[player][idx]
+            if len(table_card[card.color]) == card.value-1:
+                if v == 0:
+                    return True, 'value', player, card.value
+                elif c == 'unknown':
+                    return True, 'color', player, card.color
+    return False, '', '', 0
+
+def hint_playable_fast(players, playersCard, hintState, table_card):
+    #hint next playable card, the newest one
+
+    for player in players:
+        card_list = []
+        for idx, card in enumerate(playersCard[player]):
+            card_list.append((idx, card))
+        for idx, card in reversed(card_list):
             c, v = hintState[player][idx]
             if len(table_card[card.color]) == card.value-1:
                 if v == 0:

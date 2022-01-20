@@ -25,6 +25,7 @@ class GameManager:
         self.err_token = None
         self.deck = None
         self.myTurn = False
+        self.hintReceived = -1
         self.table_cards = { "red": [], "yellow": [], "green": [], "blue": [], "white": [] }
         self.discarded_cards = []
         self.players_card = {}
@@ -120,6 +121,9 @@ class GameManager:
 
                     elif type(data) is GameData.ServerHintData:
                         data: GameData.ServerHintData
+                        if(data.destination == self.playerName):
+                            self.hintReceived = data.positions[-1] #Youngest card hinted
+                            print(data.positions[-1])
                         for i in data.positions:
                             c, v = self.hintState[data.destination][i]
                             if(data.type == 'value'):
@@ -135,7 +139,6 @@ class GameManager:
                       or type(data) is GameData.ServerPlayerThunderStrike:
                         data: GameData.ServerPlayerMoveOk
                         with self.cv_state:
-                            print(f'Scalando, pop di {data.cardHandIndex}, {data.lastPlayer}')
                             self.hintState[data.lastPlayer].pop(data.cardHandIndex)
                             self.hintState[data.lastPlayer].append(('unknown', 0))
                             self.cv_state.notify_all()
@@ -144,7 +147,6 @@ class GameManager:
                     elif type(data) is GameData.ServerActionValid:
                         data: GameData.ServerActionValid
                         with self.cv_state:
-                            print(f'Scalando, pop di {data.cardHandIndex}, {data.lastPlayer}')
                             self.hintState[data.lastPlayer].pop(data.cardHandIndex)
                             self.hintState[data.lastPlayer].append(('unknown', 0))
                             self.cv_state.notify_all()
@@ -172,12 +174,16 @@ class GameManager:
     def play_card(self, num_card):
         try:
             self.s.send(GameData.ClientPlayerPlayCardRequest(self.playerName, num_card).serialize())
+            with self.lock:
+                self.hintReceived = -1
         except:
             return False
         
     def discard_card(self, num_card):
         try:
             self.s.send(GameData.ClientPlayerDiscardCardRequest(self.playerName, num_card).serialize())
+            with self.lock:
+                self.hintReceived = -1
         except:
             return False
 
@@ -185,6 +191,8 @@ class GameManager:
         assert type in ['color', 'value']
         try:
             self.s.send(GameData.ClientHintData(self.playerName, destination, type, value).serialize())
+            with self.lock:
+                self.hintReceived = -1
         except:
             return False
     
@@ -279,7 +287,8 @@ class GameManager:
             discarded_cards = list(self.discarded_cards)
             players_card = dict(self.players_card)
             num_cards = self.num_cards
-        return turn, hint_token, err_token, self.playerName, other_players, hintState, table, discarded_cards, players_card, num_cards
+            hintRecieved = self.hintReceived
+        return turn, hint_token, err_token, self.playerName, other_players, hintState, table, discarded_cards, players_card, num_cards, hintRecieved
 
     def check_running(self):
         with self.lock:
