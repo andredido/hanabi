@@ -9,4 +9,4 @@ Start the server and then run in a shell:
 ```bash
 python3 my_agent.py <id>
 ```
-where <id> is equal to a number, for different agent in the same game you need different number
+where \<id> is equal to a number, for different agent in the same game you need different number
