@@ -19,58 +19,47 @@ if(len(argv)< 2):
 id = int(argv[1])
 
 gm = GameManager.GameManager('127.0.0.1', '1024', id)
-command = ''
-while True:
-    print('\nType ready when all the players are connected')
-    command = input()
-    if command == "ready":
-        break
+
 gm.ready()
+turn, hint_token, err_token, playerName, other_players, hintState, table_cards, discarded_cards, players_card, num_cards = gm.get_state()
 while(gm.check_running()):
-    turn, data = gm.my_turn()
-    players = gm.get_other_players()
-    myhintState = gm.get_myhintState()
-    table_cards = gm.get_table_cards()
-    discarded_cards = gm.get_discarded_cards()
-    players_card = gm.get_players_cards()
-    hintState = gm.get_hintState()
-
-    if (turn):
-        idx_card = utils.play_safe_card(myhintState, table_cards)
-        if idx_card != False:
-            gm.play_card(idx_card)
-            continue
-        if(data.usedNoteTokens == 0):
-            #give a hint
-            type,dest, value =  utils.best_hint(players, players_card, hintState, table_cards)
-            if type:
-                print(f'Hint to {dest} - {type}, {value}')
-                gm.give_hint(dest, type, value)
-                continue
-            else:
-                type,dest, value =  utils.useless_hint(players, players_card, hintState, table_cards)
-                print(f'Hint to {dest} - {type}, {value}')
-                gm.give_hint(dest, type, value)
-                
-        idx_card = utils.discard_safe_card(myhintState, table_cards)
-        if idx_card != False:
-            gm.play_card(idx_card)
-            continue
-        if(int(data.usedNoteTokens)<8):
-            #I can give a hint
-            
-            type,dest, value =  utils.best_hint(players, players_card, hintState, table_cards)
-            if type:
-                print(f'Hint to {dest} - {type}, {value}')
-                gm.give_hint(dest, type, value)
-                continue
-        
-        for i, (c,v) in reversed(list(enumerate(myhintState))):
-            if not utils.check_unique_remained(c, v, discarded_cards):
-                print('discard oldest card')
-                gm.discard_card(i)
-                break
     gm.wait_for_turn()
+    turn, hint_token, err_token, playerName, other_players, hintState, table_cards, discarded_cards, players_card, num_cards = gm.get_state()
+    myhintState = hintState[playerName]
+    if (turn):
+        s, i = utils.play_best_card(other_players, myhintState, table_cards, players_card, discarded_cards)
+        if(s==1):
+            gm.play_card(i)
+            print(f'Played card {i}')
+            continue
+        if(hint_token>0):#I can discard
+            s, i = utils.discard_best_card(other_players, myhintState, table_cards, players_card, discarded_cards)
+            if s == 1:
+                gm.discard_card(i)
+                print(f'Discarded card {i}')
+                continue
+        if(hint_token<8):
+            b, t, d, v = utils.hint_playable(other_players, players_card, hintState, table_cards)
+            if b:
+                gm.give_hint(d, t, v)
+                print(f'Hinted player {d}, type {t}, value {v}')
+                continue
+            b, t, d, v = utils.hint5(other_players, players_card, hintState, table_cards)
+            if b:
+                gm.give_hint(d, t, v)
+                print(f'Hinted player {d}, type {t}, value {v}')
+                continue
 
+        if(hint_token>0):
+            s, i = utils.discard_best_card(other_players, myhintState, table_cards, players_card, discarded_cards)
+            gm.discard_card(i)
+            print(f'Discarded card {i}')
+            continue
+        b, t, d, v = utils.hint_random(other_players, players_card, hintState, table_cards)
+        if b:
+            gm.give_hint(d, t, v)
+            print(f'Hinted (useless) player {d}, type {t}, value {v}')
+            continue
+        print('NOTHING DONE -- ATTENTION')
 
 del(gm)

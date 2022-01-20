@@ -1,48 +1,87 @@
+#!/usr/bin/env python3
+
 import GameManager
+from threading import Thread
+import os
+from sys import argv, stdout
 import random
+import utils
 
-def secure_play(state):
-    return None
+if(len(argv)< 2):
+    print('Provide an id number')
 
-gm = GameManager.GameManager('127.0.0.1', '1024', 0)
-command = ''
-while True:
-    print('\nType ready when all the players are connected')
-    command = input()
-    if command == "ready":
-        break
+id = int(argv[1])
+
+gm = GameManager.GameManager('127.0.0.1', '1024', id)
+
 gm.ready()
+#initial state err_token = 0 , hint_token = 0
+turn, hint_token, err_token, playerName, other_players, hintState, table_cards, discarded_cards, players_card, num_cards = gm.get_state()
 while(gm.check_running()):
-    if( not gm.check_running()): break
-    turn, data = gm.my_turn()
-    if (turn):
-        #my turn --> do some action
-        if(int(gm.state.usedNoteTokens)==0 ):
-            action = random.choice(['hint', 'play'])
-        elif(int(gm.state.usedNoteTokens)==8):
-            action = random.choice(['play', 'discard'])
-        else:
-            action = random.choice(['hint', 'play', 'discard'])
-
-        if action == 'play':
-            #play a card
-            value = random.choice([0,1,2,3,4])
-            if(gm.play_card(value)):
-                print('Played')
-        if action == 'hint':
-            dest = random.choice(gm.get_players())
-            type_hint = random.choice(['color','value'])
-            if type_hint == 'color':
-                value = random.choice(['red', 'blue', 'yellow', 'white', 'green'])
-            else:
-                value = random.choice([1,2,3,4,5])
-            if(gm.give_hint(dest, type_hint, value)):
-                print(f'Hint to {dest}')
-        if action == 'discard':
-            value = random.choice([0,1,2,3,4])
-            if(gm.discard_card(value)):
-                print(f'Discarded')
     gm.wait_for_turn()
-
+    turn, hint_token, err_token, playerName, other_players, hintState, table_cards, discarded_cards, players_card, num_cards = gm.get_state()
+    myhintState = hintState[playerName]
+    if (turn):
+        print(f'\t{turn}, {hint_token}, {err_token}')
+        print(f'\t{hintState}')
+        print('\tPLAYERS CARDS')
+        ok = True
+        for player in other_players:
+            print(f'\t{player}')
+            for i, card in enumerate(players_card[player]):
+                c,v = hintState[player][i]
+                if c != 'unknown' and c !=card.color:
+                    ok=False
+                if v!=0 and v!= card.value:
+                    ok = False
+                print(f'\t\t({card.color},{card.value})')
+        print('\tTABLE')
+        for color in table_cards:
+            print(f'\t\t{color} {len(table_cards[color])}')
+        sp, ip = utils.play_best_card(other_players, myhintState, table_cards, players_card, discarded_cards)
+        if not ok:
+            print('PROBLEM!!!!!!!!!!!')
+            break
+        if(sp==1):
+            gm.play_card(ip)
+            print(f'Played sure card {ip}')
+            continue
+        if sp>0.75 and err_token<2:
+            gm.play_card(ip)
+            print(f'Played card {ip}')
+            continue
+        
+        if(hint_token<8):
+            b, t, d, v = utils.hint_playable(other_players, players_card, hintState, table_cards)
+            if b:
+                gm.give_hint(d, t, v)
+                print(f'Hinted player {d}, type {t}, value {v}')
+                continue
+        if(hint_token<8 and hint_token>3):
+            b, t, d, v = utils.hint_useless_card(other_players, players_card, hintState, table_cards, discarded_cards)
+            if b:
+                gm.give_hint(d, t, v)
+                print(f'Hinted player {d}, type {t}, value {v}')
+                continue
+            
+        if(hint_token>0):#I can discard
+            s, i = utils.sure_discard(myhintState, table_cards, discarded_cards)
+            if s:
+                gm.discard_card(i)
+                print(f'Discarded card {i}')
+                continue
+            s, i = utils.discard_best_card(other_players, myhintState, table_cards, players_card, discarded_cards)
+            gm.discard_card(i)
+            print(f'Discarded card {i}')
+            continue
+        if(hint_token<8):    
+            b, t, d, v = utils.hint_random(other_players, players_card, hintState, table_cards)
+            if b:
+                gm.give_hint(d, t, v)
+                print(f'Hinted (randomly) player {d}, type {t}, value {v}')
+                continue
+        
+        print('NOTHING DONE -- ATTENTION')
+        break
 
 del(gm)
