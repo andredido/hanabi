@@ -20,7 +20,7 @@ python3 my_agent.py <id>
 where \<id> is equal to a number, for different agent in the same game you need different number
 
 ## My Agent - Pro
-Implemented in file **my_agent.py**.
+Implemented in file **my_agent_pro.py**.
 
 Rule based agent.
 Instruction:
