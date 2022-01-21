@@ -31,6 +31,7 @@ class GameManager:
         self.players_card = {}
         self.players = []
         self.other_players = []
+        self.card_left = 50
         self.num_cards = 0
         self.lock = Lock()
         self.sem = Semaphore()
@@ -54,7 +55,7 @@ class GameManager:
             with self.cv_state:
                 self.cv_state.notify_all()
             self.sem.release()
-
+    
         os._exit(0)
     
     def ready(self):
@@ -76,6 +77,7 @@ class GameManager:
                         if len(self.players) >3: self.num_cards = 4
                         else: self.num_cards = 5
                         for p in self.players:
+                            self.card_left -= self.num_cards*len(self.players)
                             self.hintState[p] = []
                             for i in range(0,self.num_cards, 1):
                                 self.hintState[p].append(('unknown', 0))
@@ -95,11 +97,12 @@ class GameManager:
             with self.lock:
                 run = self.run
             while run:
+                with self.lock:
+                    run = self.run
                 data = self.s.recv(DATASIZE)
                 if not data: continue
                 data = GameData.GameData.deserialize(data)
                 with self.lock:
-                    run = self.run
                     if type(data) is GameData.ServerActionInvalid:
                         data: GameData.ServerActionInvalid
                         self.sem.release()
@@ -111,35 +114,43 @@ class GameManager:
                             self.state = data
                             self.hint_token = data.usedNoteTokens
                             self.err_token = data.usedStormTokens
+                            self.card_left = 50-self.num_cards
                             for p in data.players:
                                 if p.name != self.playerName:
                                     self.players_card[p.name] = [Card(card.id, card.value, card.color) for card in p.hand]
+                                    self.card_left -= len(self.players_card[p.name])
                             for col in data.tableCards.keys():
                                 self.table_cards[col] = [Card(card.id, card.value, card.color) for card in data.tableCards[col]]
+                                self.card_left -= len(self.table_cards[col])
                             self.discarded_cards = []
                             for card in data.discardPile:
                                 self.discarded_cards.append(Card(card.id, card.value, card.color))
+                                self.card_left -= 1
                             self.cv_state.notify_all()
 
                     elif type(data) is GameData.ServerHintData:
                         data: GameData.ServerHintData
-                        if(data.destination == self.playerName):
-                            self.hintReceived = data.positions[-1] #Youngest card hinted
-                        for i in data.positions:
-                            c, v = self.hintState[data.destination][i]
-                            if(data.type == 'value'):
-                                v = data.value
-                            else:
-                                c = data.value
-                            self.hintState[data.destination][i] = (c,v)
                         with self.cv_state:
-                             self.cv_state.notify_all()
+                            if self.card_left == 0 and data.source == self.playerName:
+                                self.card_left = -1
+                            if(data.destination == self.playerName):
+                                self.hintReceived = data.positions[-1] #Youngest card hinted
+                            for i in data.positions:
+                                c, v = self.hintState[data.destination][i]
+                                if(data.type == 'value'):
+                                    v = data.value
+                                else:
+                                    c = data.value
+                                self.hintState[data.destination][i] = (c,v)
+                            self.cv_state.notify_all()
                         self.sem.release()
 
                     elif type(data) is GameData.ServerPlayerMoveOk \
                       or type(data) is GameData.ServerPlayerThunderStrike:
                         data: GameData.ServerPlayerMoveOk
                         with self.cv_state:
+                            if self.card_left == 0 and data.lastPlayer == self.playerName:
+                                self.card_left = -1
                             self.hintState[data.lastPlayer].pop(data.cardHandIndex)
                             self.hintState[data.lastPlayer].append(('unknown', 0))
                             self.cv_state.notify_all()
@@ -148,6 +159,8 @@ class GameManager:
                     elif type(data) is GameData.ServerActionValid:
                         data: GameData.ServerActionValid
                         with self.cv_state:
+                            if self.card_left == 0 and data.lastPlayer == self.playerName:
+                                self.card_left = -1
                             self.hintState[data.lastPlayer].pop(data.cardHandIndex)
                             self.hintState[data.lastPlayer].append(('unknown', 0))
                             self.cv_state.notify_all()
@@ -289,7 +302,8 @@ class GameManager:
             players_card = dict(self.players_card)
             num_cards = self.num_cards
             hintRecieved = self.hintReceived
-        return turn, hint_token, err_token, self.playerName, other_players, hintState, table, discarded_cards, players_card, num_cards, hintRecieved
+            card_left = self.card_left
+        return turn, hint_token, err_token, self.playerName, other_players, hintState, table, discarded_cards, players_card, num_cards, hintRecieved, card_left
 
     def check_running(self):
         with self.lock:

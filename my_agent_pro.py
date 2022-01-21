@@ -16,10 +16,10 @@ gm = GameManager.GameManager('127.0.0.1', '1024', id)
 
 gm.ready()
 #initial state err_token = 0 , hint_token = 0
-turn, hint_token, err_token, playerName, other_players, hintState, table_cards, discarded_cards, players_card, num_cards, hintRecieved = gm.get_state()
+turn, hint_token, err_token, playerName, other_players, hintState, table_cards, discarded_cards, players_card, num_cards, hintRecieved,card_left = gm.get_state()
 while(gm.check_running()):
     gm.wait_for_turn()
-    turn, hint_token, err_token, playerName, other_players, hintState, table_cards, discarded_cards, players_card, num_cards, hintRecieved = gm.get_state()
+    turn, hint_token, err_token, playerName, other_players, hintState, table_cards, discarded_cards, players_card, num_cards, hintRecieved, card_left = gm.get_state()
     myhintState = hintState[playerName]
     if (turn):
         print('turn',tn)
@@ -43,8 +43,11 @@ while(gm.check_running()):
         if not ok:
             print('PROBLEM!!!!!!!!!!!')
             break
-
         sp, ip = utils.play_best_card(other_players, myhintState, table_cards, players_card, discarded_cards, hintRecieved)
+        if card_left == 0 and err_token <2:
+            gm.play_card(ip)
+            print(f'Played last card {ip}')
+            break
         if(sp==1):
             gm.play_card(ip)
             print(f'Played sure card {ip}')
